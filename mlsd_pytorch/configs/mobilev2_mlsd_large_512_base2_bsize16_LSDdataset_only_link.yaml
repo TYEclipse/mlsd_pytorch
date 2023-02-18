@@ -8,7 +8,7 @@ model:
 
 
 train:
-    save_dir:  './workdir/models/mobilev2_mlsd_large_512_base2_bsize24_LSDdataset_only_link'
+    save_dir:  './workdir/models/mobilev2_mlsd_large_512_base2_bsize16_LSDdataset_only_link'
     img_dir:  "./data/LSD_dataset/images/"
     label_fn: "./data/LSD_dataset/train_only_link.json"
     num_train_epochs: 500
@@ -17,7 +17,7 @@ train:
     use_step_lr_policy: True
     weight_decay: 0.001
     load_from: "workdir/pretrained_models/mobilev2_mlsd_large_512_bsize24/best.pth"
-    # load_from: "workdir/models/mobilev2_mlsd_large_512_base2_bsize24_LSDdataset_only_link/best.pth"
+    # load_from: "workdir/models/mobilev2_mlsd_large_512_base2_bsize16_LSDdataset_only_link/best.pth"
     warmup_steps: 500
     milestones: [ 200, 300, 400]
     milestones_in_epo: True
@@ -31,7 +31,7 @@ val:
     img_dir: "./data/LSD_dataset/images/"
     label_fn: "./data/LSD_dataset/val_only_link.json"
     batch_size: 16
-    val_after_epoch: 1
+    val_after_epoch: 100
 
 loss:
     loss_weight_dict_list: [ { 'tp_center_loss': 10.0,'sol_center_loss': 1.0,'tp_match_loss': 1.0 } ]

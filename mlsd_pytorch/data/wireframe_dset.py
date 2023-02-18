@@ -1,6 +1,6 @@
 import json
 from mlsd_pytorch.utils.comm import create_dir
-import  tqdm
+import tqdm
 import os
 import cv2
 import torch
@@ -19,15 +19,16 @@ from albumentations import (
 )
 
 from mlsd_pytorch.data.utils import \
-    ( swap_line_pt_maybe,
-      get_ext_lines,
-      #gen_TP_mask,
-      gen_TP_mask2,
-      gen_SOL_map,
-      gen_junction_and_line_mask,
-      TP_map_to_line_numpy,
-      cut_line_by_xmin,
-      cut_line_by_xmax)
+    (swap_line_pt_maybe,
+     get_ext_lines,
+     # gen_TP_mask,
+     gen_TP_mask2,
+     gen_SOL_map,
+     gen_junction_and_line_mask,
+     TP_map_to_line_numpy,
+     cut_line_by_xmin,
+     cut_line_by_xmax)
+
 
 def parse_label_file_info(img_dir, label_file):
     infos = []
@@ -79,7 +80,7 @@ class Line_Dataset(Dataset):
         self.min_len = cfg.decode.len_thresh
         self.is_train = is_train
 
-        self.img_dir  = cfg.train.img_dir
+        self.img_dir = cfg.train.img_dir
         self.label_fn = cfg.train.label_fn
 
         if not is_train:
@@ -91,7 +92,8 @@ class Line_Dataset(Dataset):
 
         print("==> load label..")
         if self.with_cache:
-            ann_cache_fn = self.cache_dir+"/"+os.path.basename(self.label_fn)+".cache"
+            ann_cache_fn = self.cache_dir+"/" + \
+                os.path.basename(self.label_fn)+".cache"
             if os.path.exists(ann_cache_fn):
                 print("==> load {} from cache dir..".format(ann_cache_fn))
                 self.anns = pickle.load(open(ann_cache_fn, 'rb'))
@@ -101,21 +103,19 @@ class Line_Dataset(Dataset):
                 pickle.dump(self.anns, open(ann_cache_fn, 'wb'))
         else:
             self.anns = self._load_anns(self.img_dir, self.label_fn)
-        #random.shuffle(self.anns)
+        # random.shuffle(self.anns)
         print("==> valid samples: ", len(self.anns))
-
 
         self.input_size = cfg.datasets.input_size
         self.train_aug = self._aug_train()
         self.test_aug = self._aug_test(input_size=self.input_size)
 
-        self.cache_to_mem =  cfg.train.cache_to_mem
+        self.cache_to_mem = cfg.train.cache_to_mem
         self.cache_dict = {}
         if self.with_cache:
             print("===> cache...")
             for ann in tqdm.tqdm(self.anns):
                 self.load_label(ann, False)
-
 
     def __len__(self):
         return len(self.anns)
@@ -145,17 +145,19 @@ class Line_Dataset(Dataset):
             ],
             p=1.0)
         return aug
-    
+
     def _aug_test(self, input_size=384):
         aug = Compose(
             [
-                #Resize(height=input_size,
+                # Resize(height=input_size,
                 #       width=input_size),
-                Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+                Normalize(mean=(0.485, 0.456, 0.406),
+                          std=(0.229, 0.224, 0.225))
                 # Normalize(mean=(0.0, 0.0, 0.0), std=(1.0 / 255, 1.0 / 255, 1.0 / 255))
             ],
             p=1.0)
         return aug
+
     def _line_len_fn(self, l1):
         len1 = np.sqrt((l1[2] - l1[0]) ** 2 + (l1[3] - l1[1]) ** 2)
         return len1
@@ -167,7 +169,7 @@ class Line_Dataset(Dataset):
 
             img_full_fn = os.path.join(img_dir, c['imagePath'])
             if not os.path.exists(img_full_fn):
-                print(" not exist!".format(img_full_fn) )
+                print(" not exist!".format(img_full_fn))
                 exit(0)
 
             lines = []
@@ -199,39 +201,36 @@ class Line_Dataset(Dataset):
         img_h = ann_origin['img_h']
         lines = ann_origin['lines']
         xmin = random.randint(1, int(0.1 * img_w))
-        
 
         #ymin = random.randint(1, 0.1 * img_h)
         #ymax = img_h - random.randint(1, 0.1 * img_h)
 
-
-        ## xmin
+        # xmin
         xmin_lines = []
-        for line  in lines:
+        for line in lines:
             flg, line = cut_line_by_xmin(line, xmin)
             line[0] -= xmin
             line[2] -= xmin
             if flg and self._line_len_fn(line) > self.min_len:
                 xmin_lines.append(line)
         lines = xmin_lines
-        
-        img = img[:, xmin: , :]
-        ## xmax
+
+        img = img[:, xmin:, :]
+        # xmax
         xmax = img.shape[1] - random.randint(1, int(0.1 * img.shape[1]))
-        img = img[:, :xmax , :].copy()
+        img = img[:, :xmax, :].copy()
         xmax_lines = []
         for line in lines:
             flg, line = cut_line_by_xmax(line, xmax)
             if flg and self._line_len_fn(line) > self.min_len:
                 xmax_lines.append(line)
         lines = xmax_lines
-        
+
         ann_origin['lines'] = lines
         ann_origin['img_w'] = img.shape[1]
         ann_origin['img_h'] = img.shape[0]
 
-        return  img, ann_origin
-
+        return img, ann_origin
 
     def _geo_aug(self, img, ann_origin):
         do_aug = False
@@ -246,8 +245,8 @@ class Line_Dataset(Dataset):
                     swap_line_pt_maybe([ann_origin['img_w'] - l[0],
                                         l[1], ann_origin['img_w'] - l[2], l[3]]))
             ann_origin['lines'] = flipped_lines
-            
-        lines = ann_origin['lines'].copy()    
+
+        lines = ann_origin['lines'].copy()
         if random.random() < 0.5:
             do_aug = True
             flipped_lines = []
@@ -272,16 +271,15 @@ class Line_Dataset(Dataset):
             ann_origin['lines'] = r_lines
             ann_origin['img_w'] = img.shape[1]
             ann_origin['img_h'] = img.shape[0]
-            
+
         if random.random() < 0.5:
             do_aug = True
-            img, ann_origin = self._crop_aug(img, ann_origin)     
+            img, ann_origin = self._crop_aug(img, ann_origin)
 
         ann_origin['img_w'] = img.shape[1]
         ann_origin['img_h'] = img.shape[0]
 
         return do_aug, img, ann_origin
-
 
     def load_label(self, ann, do_aug):
         norm_lines = []
@@ -309,14 +307,14 @@ class Line_Dataset(Dataset):
         label_cache_path = os.path.basename(ann['img_full_fn'])[:-4] + '.npy'
         label_cache_path = self.cache_dir + '/' + label_cache_path
 
-        can_load = self.with_cache and not  do_aug
+        can_load = self.with_cache and not do_aug
 
-        if can_load and self.cache_to_mem and label_cache_path  in self.cache_dict.keys():
+        if can_load and self.cache_to_mem and label_cache_path in self.cache_dict.keys():
             label = self.cache_dict[label_cache_path]
 
-        elif can_load  and os.path.exists(label_cache_path):
+        elif can_load and os.path.exists(label_cache_path):
             label = np.load(label_cache_path)
-            if  self.cache_to_mem:
+            if self.cache_to_mem:
                 self.cache_dict[label_cache_path] = label
         else:
 
@@ -328,7 +326,8 @@ class Line_Dataset(Dataset):
             junction_map, line_map = gen_junction_and_line_mask(ann['norm_lines'],
                                                                 self.input_size // 2, self.input_size // 2)
 
-            label = np.zeros((2 * 7 + 2, self.input_size // 2, self.input_size // 2), dtype=np.float32)
+            label = np.zeros((2 * 7 + 2, self.input_size // 2,
+                             self.input_size // 2), dtype=np.float32)
             label[0:7, :, :] = sol_mask
             label[7:14, :, :] = tp_mask
             label[14, :, :] = junction_map[0]
@@ -362,7 +361,8 @@ class Line_Dataset(Dataset):
 #             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         label = self.load_label(ann, do_aug)
-        ext_lines = get_ext_lines(ann['norm_lines'], self.input_size // 2, self.input_size // 2)
+        ext_lines = get_ext_lines(
+            ann['norm_lines'], self.input_size // 2, self.input_size // 2)
 
         norm_lines = ann['norm_lines']
         norm_lines_512_list = []
@@ -379,15 +379,16 @@ class Line_Dataset(Dataset):
         #img_norm = (img / 127.5) - 1.0
         img_norm = self.test_aug(image=img)['image']
 
-
-        norm_lines_512_tensor = torch.from_numpy(np.array(norm_lines_512_list, np.float32))
-        sol_lines_512_tensor = torch.from_numpy(np.array(ext_lines, np.float32) * 512)
+        norm_lines_512_tensor = torch.from_numpy(
+            np.array(norm_lines_512_list, np.float32))
+        sol_lines_512_tensor = torch.from_numpy(
+            np.array(ext_lines, np.float32) * 512)
 
         return img_norm, img, label, \
-               norm_lines_512_list, \
-               norm_lines_512_tensor, \
-               sol_lines_512_tensor, \
-               ann['img_full_fn']
+            norm_lines_512_list, \
+            norm_lines_512_tensor, \
+            sol_lines_512_tensor, \
+            ann['img_full_fn']
 
 
 def LineDataset_collate_fn(batch):
@@ -403,8 +404,8 @@ def LineDataset_collate_fn(batch):
 
     for inx in range(batch_size):
         im, img_origin, label_mask, \
-        norm_lines_512, norm_lines_512_tensor, \
-        sol_lines_512, img_fn = batch[inx]
+            norm_lines_512, norm_lines_512_tensor, \
+            sol_lines_512, img_fn = batch[inx]
 
         images[inx] = im.transpose((2, 0, 1))
         labels[inx] = label_mask
@@ -428,15 +429,14 @@ def LineDataset_collate_fn(batch):
     }
 
 
-
 if __name__ == '__main__':
     from mlsd_pytorch.cfg.default import get_cfg_defaults
 
     cfg = get_cfg_defaults()
 
     root_dir = "/home/lhw/m2_disk/data/czcv_2021/wireframe_raw/"
-    cfg.train.img_dir = root_dir+ "/images/"
-    cfg.train.label_fn = root_dir+ "/valid.json"
+    cfg.train.img_dir = root_dir + "/images/"
+    cfg.train.label_fn = root_dir + "/valid.json"
     cfg.train.batch_size = 1
     cfg.train.data_cache_dir = "/home/lhw/m2_disk/data/czcv_2021/wireframe_cache/"
     cfg.train.with_cache = True
@@ -444,8 +444,8 @@ if __name__ == '__main__':
 
     dset = Line_Dataset(cfg, True)
     for img_norm, img, label, norm_lines_512, \
-        norm_lines_512_tensor, sol_lines_512, fn in dset:
-        #continue
+            norm_lines_512_tensor, sol_lines_512, fn in dset:
+        # continue
         print(img.shape)
         print(label.shape)
         print(norm_lines_512_tensor.shape)
@@ -461,16 +461,15 @@ if __name__ == '__main__':
             cv2.line(img, (int(round(x0)), int(round(y0))),
                      (int(round(x1)), int(round(y1))), color, 1, 16)
 
-        cv2.imwrite(root_dir+ "/gui/gui_lines.jpg", img)
-        cv2.imwrite(root_dir+ "/gui/gui_centermap.jpg", centermap[0] * 255)
+        cv2.imwrite(root_dir + "/gui/gui_lines.jpg", img)
+        cv2.imwrite(root_dir + "/gui/gui_centermap.jpg", centermap[0] * 255)
 
         displacement_map = displacement_map[0]
         displacement_map = np.where(displacement_map != 0, 255, 0)
-        cv2.imwrite(root_dir+ "/gui/gui_dis0.jpg", displacement_map)
-
+        cv2.imwrite(root_dir + "/gui/gui_dis0.jpg", displacement_map)
 
         len_map = np.where(label[12] != 0, 255, 0)
-        cv2.imwrite(root_dir+ "/gui/gui_lenmap.jpg", len_map)
+        cv2.imwrite(root_dir + "/gui/gui_lenmap.jpg", len_map)
 
         centermap = label[0]
         centermap = centermap[np.newaxis, :]
@@ -484,7 +483,8 @@ if __name__ == '__main__':
                      (int(round(x1)), int(round(y1))), color, 1, 16)
 
         cv2.imwrite(root_dir + "/gui/gui_SOL_lines.jpg", img)
-        cv2.imwrite(root_dir + "/gui/gui_SOL_centermap.jpg", centermap[0] * 255)
+        cv2.imwrite(root_dir + "/gui/gui_SOL_centermap.jpg",
+                    centermap[0] * 255)
 
         displacement_map = displacement_map[0]
         displacement_map = np.where(displacement_map != 0, 255, 0)
