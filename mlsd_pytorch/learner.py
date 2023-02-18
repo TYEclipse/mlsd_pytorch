@@ -213,7 +213,7 @@ class Simple_MLSD_Learner():
                 # val
                 m = self.val(self.model, val_dataloader,
                              self.score_threshold, self.top_k, self.length_threshold)
-                fscore = m['sAP10']
+                fscore = m['fscore']
                 if best_score < fscore:
                     early_n = 0
                     best_score = fscore
@@ -221,7 +221,7 @@ class Simple_MLSD_Learner():
                     torch.save(self.model.state_dict(), model_path)
                 else:
                     early_n += 1
-                self.logger.write("epo: {}, steps: {} ,sAP10 : {:.4f} , best sAP10: {:.4f}".
+                self.logger.write("epo: {}, steps: {} ,sAP10 : {:.4f} , best fscore: {:.4f}".
                                   format(self.epo, self.global_step, fscore, best_score))
                 self.logger.write(str(m))
                 self.logger.write("=="*50)
