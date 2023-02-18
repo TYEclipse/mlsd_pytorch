@@ -95,8 +95,6 @@ class Simple_MLSD_Learner():
                 labels = batch_data["ys"].cuda()
                 batch_outputs = model(images)
 
-                print('the shape of batch_outputs: ', batch_outputs.shape)
-
                 # keep TP mask
                 labels = labels[:, 7:, :, :]
                 batch_outputs = batch_outputs[:, 7:, :, :]
@@ -108,8 +106,6 @@ class Simple_MLSD_Learner():
                     _, pred_lines, _, scores = \
                         deccode_lines_TP(outputs, score_threshold,
                                         length_threshold, topk, 3)
-                    
-                    print('the num of pred lines: ', pred_lines.shape[0])
 
                     pred_lines = pred_lines.detach().cpu().numpy()
                     scores = scores.detach().cpu().numpy()
