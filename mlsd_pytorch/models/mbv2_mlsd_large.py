@@ -38,18 +38,18 @@ class ConvBNReLU(nn.Sequential):
 #             padding = (kernel_size - 1) // 2
 
         super(ConvBNReLU, self).__init__(
-            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding, groups=groups, bias=False),
+            nn.Conv2d(in_planes, out_planes, kernel_size, stride,
+                      padding, groups=groups, bias=False),
             nn.BatchNorm2d(out_planes),
             nn.ReLU6(inplace=True)
         )
         self.max_pool = nn.MaxPool2d(kernel_size=stride, stride=stride)
 
-
     def forward(self, x):
         # TFLite uses slightly different padding
-#         if self.stride == 2:
-#             x = F.pad(x, (0, 1, 0, 1), "constant", 0)
-#             #print(x.shape)
+        #         if self.stride == 2:
+        #             x = F.pad(x, (0, 1, 0, 1), "constant", 0)
+        #             #print(x.shape)
 
         for module in self:
             if not isinstance(module, nn.MaxPool2d):
@@ -72,7 +72,8 @@ class InvertedResidual(nn.Module):
             layers.append(ConvBNReLU(inp, hidden_dim, kernel_size=1))
         layers.extend([
             # dw
-            ConvBNReLU(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim),
+            ConvBNReLU(hidden_dim, hidden_dim,
+                       stride=stride, groups=hidden_dim),
             # pw-linear
             nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
             nn.BatchNorm2d(oup),
@@ -123,15 +124,18 @@ class MobileNetV2(nn.Module):
                              "or a 4-element list, got {}".format(inverted_residual_setting))
 
         # building first layer
-        input_channel = _make_divisible(input_channel * width_mult, round_nearest)
-        self.last_channel = _make_divisible(last_channel * max(1.0, width_mult), round_nearest)
+        input_channel = _make_divisible(
+            input_channel * width_mult, round_nearest)
+        self.last_channel = _make_divisible(
+            last_channel * max(1.0, width_mult), round_nearest)
         features = [ConvBNReLU(3, input_channel, stride=2)]
         # building inverted residual blocks
         for t, c, n, s in inverted_residual_setting:
             output_channel = _make_divisible(c * width_mult, round_nearest)
             for i in range(n):
                 stride = s if i == 0 else 1
-                features.append(block(input_channel, output_channel, stride, expand_ratio=t))
+                features.append(
+                    block(input_channel, output_channel, stride, expand_ratio=t))
                 input_channel = output_channel
 
         self.features = nn.Sequential(*features)
@@ -165,12 +169,12 @@ class MobileNetV2(nn.Module):
         c1, c2, c3, c4, c5 = fpn_features
         return c1, c2, c3, c4, c5
 
-
     def forward(self, x):
         return self._forward_impl(x)
 
     def _load_pretrained_model(self):
-        pretrain_dict = model_zoo.load_url('https://download.pytorch.org/models/mobilenet_v2-b0353104.pth')
+        pretrain_dict = model_zoo.load_url(
+            'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth')
         model_dict = {}
         state_dict = self.state_dict()
         for k, v in pretrain_dict.items():
@@ -186,14 +190,14 @@ class MobileV2_MLSD_Large(nn.Module):
 
         self.backbone = MobileNetV2(pretrained=True)
         ## A, B
-        self.block15 = BlockTypeA(in_c1= 64, in_c2= 96,
-                                  out_c1= 64, out_c2=64,
+        self.block15 = BlockTypeA(in_c1=64, in_c2=96,
+                                  out_c1=64, out_c2=64,
                                   upscale=False)
         self.block16 = BlockTypeB(128, 64)
 
         ## A, B
-        self.block17 = BlockTypeA(in_c1 = 32,  in_c2 = 64,
-                                  out_c1= 64,  out_c2= 64)
+        self.block17 = BlockTypeA(in_c1=32,  in_c2=64,
+                                  out_c1=64,  out_c2=64)
         self.block18 = BlockTypeB(128, 64)
 
         ## A, B
@@ -232,10 +236,10 @@ if __name__ == '__main__':
     from mlsd_pytorch.cfg.default import get_cfg_defaults
     cfg = get_cfg_defaults()
     model = MobileV2_MLSD_Large(cfg)
-    x = torch.randn((1,3, 512, 512))
+    x = torch.randn((1, 3, 512, 512))
     y = model(x)
 
-    from  thop import  profile
+    from thop import profile
 
     flops, params = profile(model, inputs=(x, ))
     print('Total params: %.2fM' % (params / 1000000.0))

@@ -1,6 +1,13 @@
+# demo
 numpy
 opencv-python
 pillow
 torch
 Flask
 requests
+
+# train
+yacs
+tqdm
+albumentations
+timm

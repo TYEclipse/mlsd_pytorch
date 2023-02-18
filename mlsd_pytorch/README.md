@@ -58,8 +58,7 @@ data/
 tiny:
 ```
 
-python mlsd_pytorch/train.py \
- --config mlsd_pytorch/configs/mobilev2_mlsd_tiny_512_base2_bsize24.yaml
+python mlsd_pytorch/train.py --config mlsd_pytorch/configs/mobilev2_mlsd_tiny_512_base2_bsize24.yaml
 ```
 
 large:
