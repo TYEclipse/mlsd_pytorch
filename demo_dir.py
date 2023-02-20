@@ -12,10 +12,12 @@ from utils import pred_lines
 
 import argparse
 
+IMAGE_SIZE = 512
+
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_file", type=str, default='mlsd_pytorch/configs/mobilev2_mlsd_large_1280_base2_bsize24_LSDdataset_only_link.yaml')
-    parser.add_argument("--model_path", type=str, default='workdir/models/mobilev2_mlsd_large_1280_base2_bsize24_LSDdataset_only_link/best.pth')
+    parser.add_argument("--config_file", type=str, default='mlsd_pytorch/configs/mobilev2_mlsd_large_512_base2_bsize16_LSDdataset_only_link.yaml')
+    parser.add_argument("--model_path", type=str, default='workdir/models/mobilev2_mlsd_large_512_base2_bsize16_LSDdataset_only_link/best.pth')
     parser.add_argument("--img_dir", type=str, default='data/LSD_dataset/images')
     parser.add_argument("--output_path", type=str, default='output')
     parser.add_argument("--score_thresh", type=float, default=0.01)
@@ -48,15 +50,15 @@ def main():
 
         img = cv2.imread(img_fn)
         ori_size = img.shape[:2]
-        img = cv2.resize(img, (1280, 1280))
+        img = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         # lines, scores = pred_lines(img, model, [1280, 1280], args.score_thresh, args.len_thresh)
-        lines, scores = pred_lines(img, model, [1280, 1280], args.score_thresh, args.len_thresh)
+        lines, scores = pred_lines(img, model, [IMAGE_SIZE, IMAGE_SIZE], args.score_thresh, args.len_thresh)
         
         # trans to original size
-        lines[:, 0::2] = lines[:, 0::2] * ori_size[1] / 1280
-        lines[:, 1::2] = lines[:, 1::2] * ori_size[0] / 1280
+        lines[:, 0::2] = lines[:, 0::2] * ori_size[1] / IMAGE_SIZE
+        lines[:, 1::2] = lines[:, 1::2] * ori_size[0] / IMAGE_SIZE
 
         # output lines to txt file
         file_name = img_file.split('.')[0]

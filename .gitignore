@@ -3,3 +3,4 @@ static/results
 data/*
 output/*
 workdir/*
+output_fail/*
