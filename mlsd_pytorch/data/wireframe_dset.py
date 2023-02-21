@@ -1,5 +1,4 @@
 import json
-from mlsd_pytorch.utils.comm import create_dir
 import tqdm
 import os
 import cv2
@@ -21,7 +20,6 @@ from albumentations import (
 from mlsd_pytorch.data.utils import \
     (swap_line_pt_maybe,
      get_ext_lines,
-     # gen_TP_mask,
      gen_TP_mask2,
      gen_SOL_map,
      gen_junction_and_line_mask,
@@ -76,14 +74,14 @@ class Line_Dataset(Dataset):
     def __init__(self, cfg, is_train):
         super(Line_Dataset, self).__init__()
 
-        self.cfg = cfg
+        self.with_centermap_extend = cfg.datasets.with_centermap_extend
         self.min_len = cfg.decode.len_thresh
         self.is_train = is_train
 
-        self.img_dir = cfg.train.img_dir
-        self.label_fn = cfg.train.label_fn
-
-        if not is_train:
+        if is_train:
+            self.img_dir = cfg.train.img_dir
+            self.label_fn = cfg.train.label_fn
+        else:
             self.img_dir = cfg.val.img_dir
             self.label_fn = cfg.val.label_fn
 
@@ -108,7 +106,7 @@ class Line_Dataset(Dataset):
 
         self.input_size = cfg.datasets.input_size
         self.train_aug = self._aug_train()
-        self.test_aug = self._aug_test(input_size=self.input_size)
+        self.test_aug = self._aug_test()
 
         self.cache_to_mem = cfg.train.cache_to_mem
         self.cache_dict = {}
@@ -134,26 +132,15 @@ class Line_Dataset(Dataset):
                                                  p=0.5)
                     ]
                 ),
-                #                 OneOf(
-                #                     [
-                #                         Blur(blur_limit=3, p=0.5),
-                #                         GaussianBlur(blur_limit=3, p=0.5),
-                #                         MedianBlur(blur_limit=3, p=0.5)
-                #                     ]
-                #                 ),
-
             ],
             p=1.0)
         return aug
 
-    def _aug_test(self, input_size=384):
+    def _aug_test(self):
         aug = Compose(
             [
-                # Resize(height=input_size,
-                #       width=input_size),
                 Normalize(mean=(0.485, 0.456, 0.406),
                           std=(0.229, 0.224, 0.225))
-                # Normalize(mean=(0.0, 0.0, 0.0), std=(1.0 / 255, 1.0 / 255, 1.0 / 255))
             ],
             p=1.0)
         return aug
@@ -283,26 +270,22 @@ class Line_Dataset(Dataset):
 
     def load_label(self, ann, do_aug):
         norm_lines = []
-        for l in ann['lines']:
-
-            ll = [
-                np.clip(l[0] / ann['img_w'], 0, 1),
-                np.clip(l[1] / ann['img_h'], 0, 1),
-                np.clip(l[2] / ann['img_w'], 0, 1),
-                np.clip(l[3] / ann['img_h'], 0, 1)
+        for line in ann['lines']:
+            norm_line = [
+                np.clip(line[0] / ann['img_w'], 0, 1),
+                np.clip(line[1] / ann['img_h'], 0, 1),
+                np.clip(line[2] / ann['img_w'], 0, 1),
+                np.clip(line[3] / ann['img_h'], 0, 1)
             ]
-            x0, y0, x1, y1 = 256 * ll[0], 256 * ll[1], 256 * ll[2], 256 * ll[3]
-            if x0 == x1 and y0 == y1:
-                print('fatal err!')
-                print(ann['img_w'], ann['img_h'])
-                print(ll)
-                print(l)
-                print(ann)
-                exit(0)
 
-            norm_lines.append(ll)
+            assert norm_line[0] != norm_line[2] or norm_line[1] != norm_line[
+                3], f'fatal err! {ann["img_w"]} {ann["img_h"]} {norm_line} {line} {ann}'
+
+            norm_lines.append(norm_line)
 
         ann['norm_lines'] = norm_lines
+        ann['norm_min_len'] = self.min_len / \
+            np.sqrt(ann['img_w'] ** 2 + ann['img_h'] ** 2)
 
         label_cache_path = os.path.basename(ann['img_full_fn'])[:-4] + '.npy'
         label_cache_path = self.cache_dir + '/' + label_cache_path
@@ -317,12 +300,10 @@ class Line_Dataset(Dataset):
             if self.cache_to_mem:
                 self.cache_dict[label_cache_path] = label
         else:
-
             tp_mask = gen_TP_mask2(ann['norm_lines'], self.input_size // 2, self.input_size // 2,
-                                   with_ext=self.cfg.datasets.with_centermap_extend)
-            sol_mask, _ = gen_SOL_map(ann['norm_lines'], self.input_size // 2, self.input_size // 2,
+                                   with_ext=self.with_centermap_extend)
+            sol_mask, _ = gen_SOL_map(ann['norm_lines'], self.input_size // 2, self.input_size // 2, min_len=ann['norm_min_len'],
                                       with_ext=False)
-
             junction_map, line_map = gen_junction_and_line_mask(ann['norm_lines'],
                                                                 self.input_size // 2, self.input_size // 2)
 
@@ -332,6 +313,7 @@ class Line_Dataset(Dataset):
             label[7:14, :, :] = tp_mask
             label[14, :, :] = junction_map[0]
             label[15, :, :] = line_map[0]
+
             if not do_aug and self.with_cache:
                 #
                 if self.cache_to_mem:
@@ -346,86 +328,68 @@ class Line_Dataset(Dataset):
     def __getitem__(self, index):
 
         ann = self.anns[index].copy()
-        img = cv2.imread(ann['img_full_fn'])
+        image_origin = cv2.imread(ann['img_full_fn'])
 
         do_aug = False
         if self.is_train and random.random() < 0.5:
-            do_aug, img, ann = self._geo_aug(img, ann)
+            do_aug, image_origin, ann = self._geo_aug(image_origin, ann)
 
-        img = cv2.resize(img, (self.input_size, self.input_size))
+        image_origin = cv2.resize(
+            image_origin, (self.input_size, self.input_size))
 
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-#         if not self.is_train:
-#             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-#         elif random.random() > 0.5:
-#             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        image_origin = cv2.cvtColor(image_origin, cv2.COLOR_BGR2RGB)
 
         label = self.load_label(ann, do_aug)
-        ext_lines = get_ext_lines(
-            ann['norm_lines'], self.input_size // 2, self.input_size // 2)
 
         norm_lines = ann['norm_lines']
-        norm_lines_512_list = []
-        for l in norm_lines:
-            norm_lines_512_list.append([
-                l[0] * 512,
-                l[1] * 512,
-                l[2] * 512,
-                l[3] * 512,
-            ])
+        ext_lines = get_ext_lines(norm_lines, min_len=ann['norm_min_len'])
+
+        tp_lines_array = np.array(norm_lines, np.float32) * self.input_size
+        sol_lines_array = np.array(ext_lines, np.float32) * self.input_size
+
+        tp_lines_tensor = torch.from_numpy(tp_lines_array)
+        sol_lines_tensor = torch.from_numpy(sol_lines_array)
 
         if self.is_train:
-            img = self.train_aug(image=img)['image']
-        #img_norm = (img / 127.5) - 1.0
-        img_norm = self.test_aug(image=img)['image']
+            image_origin = self.train_aug(image=image_origin)['image']
+        image = self.test_aug(image=image_origin)['image']
 
-        norm_lines_512_tensor = torch.from_numpy(
-            np.array(norm_lines_512_list, np.float32))
-        sol_lines_512_tensor = torch.from_numpy(
-            np.array(ext_lines, np.float32) * 512)
-
-        return img_norm, img, label, \
-            norm_lines_512_list, \
-            norm_lines_512_tensor, \
-            sol_lines_512_tensor, \
-            ann['img_full_fn']
+        return image, label, \
+            tp_lines_array, \
+            tp_lines_tensor, \
+            sol_lines_tensor
 
 
 def LineDataset_collate_fn(batch):
     batch_size = len(batch)
     h, w, c = batch[0][0].shape
+
     images = np.zeros((batch_size, 3, h, w), dtype=np.float32)
     labels = np.zeros((batch_size, 16, h // 2, w // 2), dtype=np.float32)
-    img_fns = []
-    img_origin_list = []
-    norm_lines_512_all = []
-    norm_lines_512_all_tensor_list = []
-    sol_lines_512_all_tensor_list = []
+    tp_lines_array_all = []
+    tp_lines_tensor_all = []
+    sol_lines_tensor_all = []
 
-    for inx in range(batch_size):
-        im, img_origin, label_mask, \
-            norm_lines_512, norm_lines_512_tensor, \
-            sol_lines_512, img_fn = batch[inx]
+    for idx in range(batch_size):
+        image, label, \
+            tp_lines_array, tp_lines_tensor, \
+            sol_lines_tensor = batch[idx]
 
-        images[inx] = im.transpose((2, 0, 1))
-        labels[inx] = label_mask
-        img_origin_list.append(img_origin)
-        img_fns.append(img_fn)
-        norm_lines_512_all.append(norm_lines_512)
-        norm_lines_512_all_tensor_list.append(norm_lines_512_tensor)
-        sol_lines_512_all_tensor_list.append(sol_lines_512)
+        images[idx] = image.transpose((2, 0, 1))
+        labels[idx] = label
+        tp_lines_array_all.append(tp_lines_array)
+        tp_lines_tensor_all.append(tp_lines_tensor)
+        sol_lines_tensor_all.append(sol_lines_tensor)
 
     images = torch.from_numpy(images)
     labels = torch.from_numpy(labels)
 
     return {
-        "xs": images,
-        "ys": labels,
-        "img_fns": img_fns,
-        "origin_imgs": img_origin_list,
-        "gt_lines_512": norm_lines_512_all,
-        "gt_lines_tensor_512_list": norm_lines_512_all_tensor_list,
-        "sol_lines_512_all_tensor_list": sol_lines_512_all_tensor_list
+        "images": images,
+        "labels": labels,
+        "tp_lines_array": tp_lines_array_all,
+        "tp_lines_tensor_all": tp_lines_tensor_all,
+        "sol_lines_tensor_all": sol_lines_tensor_all
     }
 
 

@@ -57,12 +57,12 @@ class Simple_MLSD_Learner():
         self.epo = 0
 
     def step(self, step_n,  batch_data: dict):
-        images = batch_data["xs"].cuda()
-        labels = batch_data["ys"].cuda()
+        images = batch_data["images"].cuda()
+        labels = batch_data["labels"].cuda()
         outputs = self.model(images)
         loss_dict = self.loss_fn(outputs, labels,
-                                 batch_data["gt_lines_tensor_512_list"],
-                                 batch_data["sol_lines_512_all_tensor_list"])
+                                 batch_data["tp_lines_tensor_all"],
+                                 batch_data["sol_lines_tensor_all"])
         loss = loss_dict['loss']
         if self.gradient_accum_steps > 1:
             loss = loss / self.gradient_accum_steps
@@ -91,16 +91,15 @@ class Simple_MLSD_Learner():
 
         with torch.no_grad():
             for batch_data in data_iter:
-                images = batch_data["xs"].cuda()
-                labels = batch_data["ys"].cuda()
+                images = batch_data["images"].cuda()
+                labels = batch_data["labels"].cuda()
                 batch_outputs = model(images)
 
                 # keep TP mask
                 labels = labels[:, 7:, :, :]
                 batch_outputs = batch_outputs[:, 7:, :, :]
 
-                for outputs, gt_lines_list_all in zip(batch_outputs, batch_data["gt_lines_512"]):
-                    gt_lines_list_all = np.array(gt_lines_list_all, np.float32)
+                for outputs, gt_lines_list_all in zip(batch_outputs, batch_data["tp_lines_array"]):
                     outputs = outputs.unsqueeze(0)
 
                     _, pred_lines, _, scores = \
@@ -111,8 +110,7 @@ class Simple_MLSD_Learner():
                     scores = scores.detach().cpu().numpy()
 
                     pred_lines_128 = 128 * pred_lines / (self.input_size / 2)
-
-                    gt_lines_128 = gt_lines_list_all / 4
+                    gt_lines_128 = 128 * gt_lines_list_all / self.input_size
                     fscore, recall, precision = F1_score_128(pred_lines_128.tolist(), gt_lines_128.tolist(),
                                                             thickness=3)
                     f_scores.append(fscore)

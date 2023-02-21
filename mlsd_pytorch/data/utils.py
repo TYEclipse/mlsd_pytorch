@@ -530,7 +530,7 @@ def gen_TP_mask2(norm_lines,  h = 256, w = 256, with_ext=False):
     return tp_mask
 
 
-def get_ext_lines(norm_lines, h=256, w=256, min_len=0.125):
+def get_ext_lines(norm_lines, min_len=0.125):
     mu_half = min_len / 2
     ext_lines = []
     for line in norm_lines:
@@ -577,7 +577,7 @@ def gen_SOL_map(norm_lines,  h =256, w =256, min_len =0.125, with_ext= False):
     1 + 4 + 2
     return [7, h, w]
     """
-    ext_lines = get_ext_lines(norm_lines, h, w, min_len)
+    ext_lines = get_ext_lines(norm_lines, min_len)
     return gen_TP_mask2(ext_lines, h, w, with_ext), ext_lines
 
 
