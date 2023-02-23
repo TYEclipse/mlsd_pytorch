@@ -128,5 +128,5 @@ if __name__ == '__main__':
     # Train the model
     train(cfg)
 
-# CUDA_VISIBLE_DEVICES=1 python mlsd_pytorch/train.py --config mlsd_pytorch/configs/mobilev2_mlsd_large_512_base2_bsize16_LSDdataset_only_link.yaml
+# CUDA_VISIBLE_DEVICES=4 python mlsd_pytorch/train.py --config mlsd_pytorch/configs/mobilev2_mlsd_large_512_base2_bsize16_LSDdataset_only_link.yaml
 # CUDA_VISIBLE_DEVICES=2 python mlsd_pytorch/train.py --config mlsd_pytorch/configs/mobilev2_mlsd_large_1280_base2_bsize2_LSDdataset_only_link.yaml

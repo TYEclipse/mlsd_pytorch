@@ -12,17 +12,19 @@ from utils import pred_lines
 
 import argparse
 
-IMAGE_SIZE = 1280
+IMAGE_SIZE = 512
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_file", type=str, default='mlsd_pytorch/configs/mobilev2_mlsd_large_1280_base2_bsize2_LSDdataset_only_link.yaml')
-    parser.add_argument("--model_path", type=str, default='workdir/models/mobilev2_mlsd_large_1280_base2_bsize2_LSDdataset_only_link/best.pth')
+    parser.add_argument("--config_file", type=str, default='mlsd_pytorch/configs/mobilev2_mlsd_large_512_base2_bsize16_LSDdatasetv1_only_link.yaml')
+    parser.add_argument("--model_path", type=str, default='workdir/models/mobilev2_mlsd_large_512_base2_bsize16_LSDdatasetv1_only_link/best.pth')
     parser.add_argument("--img_dir", type=str, default='data/LSD_dataset/images')
     parser.add_argument("--output_path", type=str, default='output')
-    parser.add_argument("--score_thresh", type=float, default=0.5)
-    parser.add_argument("--len_thresh", type=int, default=5)
+    parser.add_argument("--score_thresh", type=float, default=0.05)
+    parser.add_argument("--len_thresh", type=int, default=1)
     return parser.parse_args()
+
+# CUDA_VISIBLE_DEVICES=4 python demo_dir.py 
 
 def main():
     args = get_args()
