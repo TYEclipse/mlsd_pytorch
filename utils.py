@@ -1,23 +1,11 @@
-'''
-modified by  lihaoweicv
-pytorch version
-'''
 
-'''
-M-LSD
-Copyright 2021-present NAVER Corp.
-Apache License v2.0
-'''
-
-
-
-
-import os
 import numpy as np
 import cv2
 import torch
-from  torch.nn import  functional as F
-def deccode_output_score_and_ptss(tpMap, topk_n = 200, ksize = 5):
+from torch.nn import functional as F
+
+
+def deccode_output_score_and_ptss(tpMap, topk_n=200, ksize=5):
     '''
     tpMap:
     center: tpMap[1, 0, :, :]
@@ -61,9 +49,17 @@ def pred_lines(image, model,
     batch_image = torch.from_numpy(batch_image).float().cuda()
     outputs = model(batch_image)
     pts, pts_score, vmap = deccode_output_score_and_ptss(outputs, 500, 3)
+    print('score: range[{:.3f}, {:.3f}], mean: {:.3f}, std: {:.3f}'.format(
+        pts_score.min(), pts_score.max(), pts_score.mean(), pts_score.std()))
+
     start = vmap[:, :, :2]
     end = vmap[:, :, 2:]
     dist_map = np.sqrt(np.sum((start - end) ** 2, axis=-1))
+    print('dist: range[{:.3f}, {:.3f}], mean: {:.3f}, std: {:.3f}'.format(
+        dist_map.min(), dist_map.max(), dist_map.mean(), dist_map.std()))
+    
+    # score_thr = pts_score.mean()
+    # dist_thr = dist_map.mean()
 
     segments_list = []
     score_list = []

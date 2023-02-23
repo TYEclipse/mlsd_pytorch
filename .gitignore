@@ -4,3 +4,4 @@ data/*
 output/*
 workdir/*
 output_fail/*
+mlsd_pytorch_lightning/*
